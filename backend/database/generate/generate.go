@@ -113,6 +113,24 @@ func RandomSkillLevel(winRate float64) string {
 	return "Beginner"
 }
 
+// RandomSkillTier returns a random skill tier (Thai badminton ranking style)
+// Distribution: BG(15%), S-(10%), S(15%), N(20%), P-(10%), P(10%), P+(8%), C(6%), B(4%), A(2%)
+func RandomSkillTier() string {
+	tiers := []string{
+		"BG", "BG", "BG", // 15% Beginner
+		"S-", "S-", // 10% Sub-Standard minus
+		"S", "S", "S", // 15% Standard
+		"N", "N", "N", "N", // 20% Normal (most common)
+		"P-", "P-", // 10% Pro minus
+		"P", "P", // 10% Pro
+		"P+", // 5% Pro plus
+		"C",  // 5% Champion
+		"B",  // 5% Best
+		"A",  // 5% Ace
+	}
+	return tiers[rand.Intn(len(tiers))]
+}
+
 // RandomSkillPoints calculates skill points based on matches and win rate
 func RandomSkillPoints(matches int, winRate float64) int {
 	base := matches * 10
