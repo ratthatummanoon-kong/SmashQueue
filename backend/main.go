@@ -122,6 +122,10 @@ func main() {
 		r.Post("/api/matches", matchHandler.Create)
 		r.Put("/api/matches/result", matchHandler.RecordResult)
 
+		// Admin: View other users' profile and match history
+		r.Get("/api/users/profile", userHandler.GetUserProfile)
+		r.Get("/api/users/matches", matchHandler.GetUserHistory)
+
 		// Admin: Get all completed matches
 		r.Get("/api/admin/matches/completed", func(w http.ResponseWriter, r *http.Request) {
 			matches, err := matchService.GetAllCompleted(100)
