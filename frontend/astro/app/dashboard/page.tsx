@@ -22,6 +22,7 @@ export default function DashboardPage() {
   const [matches, setMatches] = useState<MatchHistory[]>([]);
   const [isJoiningQueue, setIsJoiningQueue] = useState(false);
   const [error, setError] = useState("");
+  const [showAllMatches, setShowAllMatches] = useState(false);
 
   useEffect(() => {
     const token = getAccessToken();
@@ -48,7 +49,7 @@ export default function DashboardPage() {
         setQueueInfo(queueRes.data);
       }
       if (matchRes.success && matchRes.data) {
-        setMatches(matchRes.data.slice(0, 4));
+        setMatches(matchRes.data); // Show all matches now
       }
     } catch (err) {
       console.error("Failed to load data:", err);
@@ -184,29 +185,49 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Recent Matches */}
+          {/* Match History */}
           <div className="lg:col-span-2">
             <div className="card">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Recent Matches</h2>
-                <Link href="/profile" className="text-sm text-[var(--primary)] hover:underline">
-                  View all →
-                </Link>
+                <h2 className="text-lg font-semibold">📜 Match History</h2>
+                {matches.length > 5 && (
+                  <button 
+                    onClick={() => setShowAllMatches(!showAllMatches)}
+                    className="text-sm text-[var(--primary)] hover:underline"
+                  >
+                    {showAllMatches ? "Show Less" : `View All (${matches.length})`}
+                  </button>
+                )}
               </div>
-              <div className="space-y-3">
+              <div className="space-y-3 max-h-[600px] overflow-y-auto">
                 {matches.length === 0 ? (
                   <p className="text-center py-8 text-[var(--muted)]">No matches yet</p>
                 ) : (
-                  matches.map((m) => (
-                    <div key={m.match.id} className="flex items-center gap-4 p-3 rounded-lg bg-[var(--surface)]">
-                      <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold ${m.won ? "bg-[var(--success)]" : "bg-[var(--error)]"}`}>
+                  (showAllMatches ? matches : matches.slice(0, 5)).map((m) => (
+                    <div key={m.match.id} className="flex items-start gap-4 p-3 rounded-lg bg-[var(--surface)] hover:bg-[var(--surface)]/80 transition-colors">
+                      <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold flex-shrink-0 ${m.won ? "bg-[var(--success)]" : "bg-[var(--error)]"}`}>
                         {m.won ? "W" : "L"}
                       </div>
-                      <div className="flex-1">
-                        <p className="font-medium">{m.match.court}</p>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start mb-1">
+                          <p className="font-medium">{m.match.court}</p>
+                          <span className={`text-xs px-2 py-1 rounded ${
+                            m.match.result === "team1" ? "bg-blue-500/20 text-blue-400" :
+                            m.match.result === "team2" ? "bg-orange-500/20 text-orange-400" :
+                            "bg-gray-500/20 text-gray-400"
+                          }`}>
+                            {m.match.result === "team1" ? "Team 1 Won" : 
+                             m.match.result === "team2" ? "Team 2 Won" : "Draw"}
+                          </span>
+                        </div>
                         <p className="text-sm text-[var(--muted)]">
-                          {new Date(m.match.started_at).toLocaleDateString()}
+                          {new Date(m.match.started_at).toLocaleDateString()} • {new Date(m.match.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
+                        {m.match.scores && m.match.scores.length > 0 && (
+                          <p className="text-xs text-[var(--muted)] mt-1">
+                            Scores: {m.match.scores.map((s: any) => `${s.team1_score}-${s.team2_score}`).join(", ")}
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))
