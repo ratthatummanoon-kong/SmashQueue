@@ -47,6 +47,10 @@ export default function AdminPage() {
   const [viewingUserStats, setViewingUserStats] = useState<UserListItem | null>(null);
   const [userStatsData, setUserStatsData] = useState<any>(null);
   const [userMatchHistory, setUserMatchHistory] = useState<any[]>([]);
+  const [playersPerPage, setPlayersPerPage] = useState(20);
+  const [customPlayersPerPage, setCustomPlayersPerPage] = useState("");
+  const [matchesPerPage, setMatchesPerPage] = useState(20);
+  const [customMatchesPerPage, setCustomMatchesPerPage] = useState("");
 
   const skillTiers = ["BG", "S-", "S", "N", "P-", "P", "P+", "C", "B", "A"];
   const skillTierNames: Record<string, string> = {
@@ -451,7 +455,9 @@ export default function AdminPage() {
         {/* Player Directory */}
         <div className="card mt-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-            <h2 className="text-lg font-semibold">👥 Player Directory</h2>
+            <h2 className="text-lg font-semibold">
+              👥 Player Directory ({Math.min(playersPerPage, filteredUsers.length)}/{filteredUsers.length})
+            </h2>
             <input
               type="text"
               placeholder="Search by name, username, or phone..."
@@ -459,6 +465,47 @@ export default function AdminPage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="flex flex-wrap items-center gap-2 mb-4 pb-4 border-b border-[var(--border)]">
+            <span className="text-sm text-[var(--muted)]">Show:</span>
+            {[10, 20, 50, 100].map(num => (
+              <button
+                key={num}
+                onClick={() => setPlayersPerPage(num)}
+                className={`text-xs px-3 py-1 rounded transition-colors ${
+                  playersPerPage === num 
+                    ? 'bg-[var(--primary)] text-white' 
+                    : 'bg-[var(--surface)] hover:bg-[var(--border)]'
+                }`}
+              >
+                {num}
+              </button>
+            ))}
+            <input
+              type="number"
+              placeholder="Custom"
+              className="input text-xs w-20 py-1"
+              value={customPlayersPerPage}
+              onChange={(e) => setCustomPlayersPerPage(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' && customPlayersPerPage) {
+                  const num = parseInt(customPlayersPerPage);
+                  if (num > 0) setPlayersPerPage(num);
+                }
+              }}
+            />
+            <button
+              onClick={() => {
+                const num = parseInt(customPlayersPerPage);
+                if (num > 0) setPlayersPerPage(num);
+              }}
+              className="text-xs px-3 py-1 bg-[var(--surface)] hover:bg-[var(--border)] rounded"
+              disabled={!customPlayersPerPage}
+            >
+              Apply
+            </button>
           </div>
           
           <div className="overflow-x-auto">
@@ -474,7 +521,7 @@ export default function AdminPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredUsers.slice(0, 20).map(user => (
+                {filteredUsers.slice(0, playersPerPage).map(user => (
                   <tr key={user.id} className="border-b border-[var(--border)]/50 hover:bg-[var(--surface)]">
                     <td className="py-3 px-2">
                       <div>
@@ -591,12 +638,49 @@ export default function AdminPage() {
 
         {/* Match History */}
         <div className="card mt-6">
-          <h2 className="text-lg font-semibold mb-4">📊 Match History ({completedMatches.length})</h2>
+          <h2 className="text-lg font-semibold mb-4">
+            📊 Match History ({Math.min(completedMatches.length, matchesPerPage)}/{completedMatches.length})
+          </h2>
+          <div className="mb-4 flex items-center gap-2 flex-wrap">
+            <span className="text-sm text-[var(--muted)]">Show:</span>
+            {[10, 20, 50, 100].map(num => (
+              <button
+                key={num}
+                onClick={() => setMatchesPerPage(num)}
+                className={`px-3 py-1 rounded text-sm ${matchesPerPage === num ? 'bg-[var(--primary)] text-white' : 'bg-[var(--card-bg)] hover:bg-[var(--hover-bg)]'}`}
+              >
+                {num}
+              </button>
+            ))}
+            <input
+              type="number"
+              min="1"
+              value={customMatchesPerPage}
+              onChange={(e) => setCustomMatchesPerPage(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const val = parseInt(customMatchesPerPage);
+                  if (val > 0) setMatchesPerPage(val);
+                }
+              }}
+              placeholder="Custom"
+              className="w-20 px-2 py-1 rounded bg-[var(--card-bg)] border border-[var(--border)] text-sm"
+            />
+            <button
+              onClick={() => {
+                const val = parseInt(customMatchesPerPage);
+                if (val > 0) setMatchesPerPage(val);
+              }}
+              className="px-3 py-1 rounded text-sm bg-[var(--card-bg)] hover:bg-[var(--hover-bg)]"
+            >
+              Apply
+            </button>
+          </div>
           {completedMatches.length === 0 ? (
             <p className="text-[var(--muted)] text-center py-8">No completed matches yet</p>
           ) : (
             <div className="space-y-3">
-              {completedMatches.slice(0, 20).map(match => {
+              {completedMatches.slice(0, matchesPerPage).map(match => {
                 const team1 = match.team1_names.join(" & ");
                 const team2 = match.team2_names.join(" & ");
                 const scoresStr = match.scores
