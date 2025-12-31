@@ -143,7 +143,7 @@ func (s *MatchService) RecordResult(matchID int64, scores []model.GameScore) (*m
 }
 
 // GetHistory returns match history for a user
-func (s *MatchService) GetHistory(userID int64, limit int) ([]model.MatchHistory, error) {
+func (s *MatchService) GetHistory(userID int64, limit int) ([]map[string]interface{}, error) {
 	if limit <= 0 {
 		limit = 20
 	}
@@ -163,7 +163,7 @@ func (s *MatchService) GetHistory(userID int64, limit int) ([]model.MatchHistory
 	}
 	defer rows.Close()
 
-	var history []model.MatchHistory
+	var history []map[string]interface{}
 	for rows.Next() {
 		var match model.Match
 		rows.Scan(&match.ID, &match.Court, pq.Array(&match.Team1), pq.Array(&match.Team2),
@@ -172,13 +172,26 @@ func (s *MatchService) GetHistory(userID int64, limit int) ([]model.MatchHistory
 		// Get scores for this match
 		match.Scores = s.getMatchScores(ctx, match.ID)
 
+		// Get player names
+		team1Names := s.getPlayerNames(ctx, match.Team1)
+		team2Names := s.getPlayerNames(ctx, match.Team2)
+
 		// Determine if user won
 		inTeam1 := contains(match.Team1, userID)
 		won := (inTeam1 && match.Result == "team1") || (!inTeam1 && match.Result == "team2")
 
-		history = append(history, model.MatchHistory{
-			Match: match,
-			Won:   won,
+		history = append(history, map[string]interface{}{
+			"id":          match.ID,
+			"court":       match.Court,
+			"team1":       match.Team1,
+			"team2":       match.Team2,
+			"team1_names": team1Names,
+			"team2_names": team2Names,
+			"scores":      match.Scores,
+			"result":      match.Result,
+			"started_at":  match.StartedAt,
+			"ended_at":    match.EndedAt,
+			"won":         won,
 		})
 	}
 
@@ -200,7 +213,7 @@ func (s *MatchService) GetActive() ([]model.Match, error) {
 	}
 	defer rows.Close()
 
-	var matches []model.Match
+	matches := []model.Match{} // Initialize as empty array instead of nil
 	for rows.Next() {
 		var match model.Match
 		rows.Scan(&match.ID, &match.Court, pq.Array(&match.Team1), pq.Array(&match.Team2),
