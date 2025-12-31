@@ -5,6 +5,7 @@ import (
 	"backend/service"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
@@ -83,6 +84,42 @@ func (h *UserHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusOK, stats)
+}
+
+// GetUserProfile handles GET /api/users/{userID}/profile (Admin only)
+func (h *UserHandler) GetUserProfile(w http.ResponseWriter, r *http.Request) {
+	payload := getUserFromContext(r.Context())
+	if payload == nil {
+		respondError(w, http.StatusUnauthorized, "Unauthorized", "")
+		return
+	}
+
+	// Check if user is admin or organizer
+	if payload.Role != "admin" && payload.Role != "organizer" {
+		respondError(w, http.StatusForbidden, "Admin access required", "")
+		return
+	}
+
+	// Get user ID from URL
+	userIDStr := r.URL.Query().Get("id")
+	if userIDStr == "" {
+		respondError(w, http.StatusBadRequest, "User ID is required", "")
+		return
+	}
+
+	var userID int64
+	if _, err := fmt.Sscanf(userIDStr, "%d", &userID); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid user ID", "")
+		return
+	}
+
+	profile, err := h.userService.GetProfile(userID)
+	if err != nil {
+		respondError(w, http.StatusNotFound, "User not found", "")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, profile)
 }
 
 // getUserFromContext extracts user payload from request context
