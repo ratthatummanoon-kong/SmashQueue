@@ -220,12 +220,16 @@ func generatePlayers(db *sql.DB, count int) ([]int64, error) {
 			return nil, fmt.Errorf("failed to insert player: %w", err)
 		}
 
-		// Initialize stats
+		// Initialize stats with random skill tier
+		skillTier := generate.RandomSkillTier()
 		db.Exec(`
 			INSERT INTO user_stats (user_id, skill_level, skill_points)
 			VALUES ($1, 'Beginner', 0)
 			ON CONFLICT (user_id) DO NOTHING
 		`, id)
+
+		// Update user with skill_tier
+		db.Exec(`UPDATE users SET skill_tier = $1 WHERE id = $2`, skillTier, id)
 
 		ids = append(ids, id)
 		fmt.Printf("  [%d/%d] Created: %s (@%s) %s\n", i+1, count, fullName, username, phone)
