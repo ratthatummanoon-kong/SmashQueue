@@ -4,6 +4,7 @@ import (
 	"backend/model"
 	"backend/service"
 	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
@@ -113,4 +114,40 @@ func (h *MatchHandler) GetActive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondJSON(w, http.StatusOK, matches)
+}
+
+// GetUserHistory handles GET /api/users/{userID}/matches (Admin only)
+func (h *MatchHandler) GetUserHistory(w http.ResponseWriter, r *http.Request) {
+	payload := getUserFromContext(r.Context())
+	if payload == nil {
+		respondError(w, http.StatusUnauthorized, "Unauthorized", "")
+		return
+	}
+
+	// Check if user is admin or organizer
+	if payload.Role != "admin" && payload.Role != "organizer" {
+		respondError(w, http.StatusForbidden, "Admin access required", "")
+		return
+	}
+
+	// Get user ID from URL query
+	userIDStr := r.URL.Query().Get("id")
+	if userIDStr == "" {
+		respondError(w, http.StatusBadRequest, "User ID is required", "")
+		return
+	}
+
+	var userID int64
+	if _, err := fmt.Sscanf(userIDStr, "%d", &userID); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid user ID", "")
+		return
+	}
+
+	history, err := h.matchService.GetHistory(userID, 50)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to get match history", err.Error())
+		return
+	}
+
+	respondJSON(w, http.StatusOK, history)
 }
