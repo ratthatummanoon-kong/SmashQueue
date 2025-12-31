@@ -334,6 +334,14 @@ export async function getCompletedMatches(): Promise<APIResponse<CompletedMatch[
   return request<CompletedMatch[]>('/admin/matches/completed');
 }
 
+export async function getUserProfileById(userId: number): Promise<APIResponse<UserProfile>> {
+  return request<UserProfile>(`/users/profile?id=${userId}`);
+}
+
+export async function getUserMatchHistory(userId: number): Promise<APIResponse<MatchHistory[]>> {
+  return request<MatchHistory[]>(`/users/matches?id=${userId}`);
+}
+
 // Health check
 export async function healthCheck(): Promise<boolean> {
   try {
