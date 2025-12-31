@@ -212,6 +212,79 @@ func (s *MatchService) GetActive() ([]model.Match, error) {
 	return matches, nil
 }
 
+// GetAllCompleted returns all completed matches with player names (for admin)
+func (s *MatchService) GetAllCompleted(limit int) ([]map[string]interface{}, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+
+	ctx := context.Background()
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, court, team1, team2, result, started_at, ended_at
+		FROM matches 
+		WHERE result != 'pending'
+		ORDER BY ended_at DESC
+		LIMIT $1
+	`, limit)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []map[string]interface{}
+	for rows.Next() {
+		var match model.Match
+		rows.Scan(&match.ID, &match.Court, pq.Array(&match.Team1), pq.Array(&match.Team2),
+			&match.Result, &match.StartedAt, &match.EndedAt)
+
+		// Get scores
+		match.Scores = s.getMatchScores(ctx, match.ID)
+
+		// Get player names
+		team1Names := s.getPlayerNames(ctx, match.Team1)
+		team2Names := s.getPlayerNames(ctx, match.Team2)
+
+		results = append(results, map[string]interface{}{
+			"id":          match.ID,
+			"court":       match.Court,
+			"team1":       match.Team1,
+			"team2":       match.Team2,
+			"team1_names": team1Names,
+			"team2_names": team2Names,
+			"scores":      match.Scores,
+			"result":      match.Result,
+			"started_at":  match.StartedAt,
+			"ended_at":    match.EndedAt,
+		})
+	}
+
+	return results, nil
+}
+
+func (s *MatchService) getPlayerNames(ctx context.Context, playerIDs []int64) []string {
+	if len(playerIDs) == 0 {
+		return []string{}
+	}
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT name FROM users WHERE id = ANY($1)
+	`, pq.Array(playerIDs))
+	if err != nil {
+		return []string{}
+	}
+	defer rows.Close()
+
+	var names []string
+	for rows.Next() {
+		var name string
+		rows.Scan(&name)
+		names = append(names, name)
+	}
+	return names
+}
+
 func (s *MatchService) getMatchScores(ctx context.Context, matchID int64) []model.GameScore {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT game_number, team1_score, team2_score
