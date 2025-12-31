@@ -40,6 +40,8 @@ export default function DashboardPage() {
   const [userStatsData, setUserStatsData] = useState<any>(null);
   const [userMatchHistory, setUserMatchHistory] = useState<any[]>([]);
   const [success, setSuccess] = useState("");
+  const [playersPerPage, setPlayersPerPage] = useState(20);
+  const [customPlayersPerPage, setCustomPlayersPerPage] = useState("");
 
   useEffect(() => {
     const token = getAccessToken();
@@ -219,7 +221,19 @@ export default function DashboardPage() {
           /* Admin View - Player Directory */
           <div className="card">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-              <h2 className="text-2xl font-semibold">👥 All Players</h2>
+              <h2 className="text-2xl font-semibold">
+                👥 All Players ({Math.min(playersPerPage, allUsers.filter(u => 
+                  searchTerm === "" || 
+                  u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  u.phone?.includes(searchTerm)
+                ).length)}/{allUsers.filter(u => 
+                  searchTerm === "" || 
+                  u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  u.phone?.includes(searchTerm)
+                ).length})
+              </h2>
               <input
                 type="text"
                 placeholder="Search by name, username, or phone..."
@@ -227,6 +241,47 @@ export default function DashboardPage() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
+            </div>
+
+            {/* Pagination Controls */}
+            <div className="flex flex-wrap items-center gap-2 mb-4 pb-4 border-b border-[var(--border)]">
+              <span className="text-sm text-[var(--muted)]">Show:</span>
+              {[10, 20, 50, 100].map(num => (
+                <button
+                  key={num}
+                  onClick={() => setPlayersPerPage(num)}
+                  className={`text-xs px-3 py-1 rounded transition-colors ${
+                    playersPerPage === num 
+                      ? 'bg-[var(--primary)] text-white' 
+                      : 'bg-[var(--surface)] hover:bg-[var(--border)]'
+                  }`}
+                >
+                  {num}
+                </button>
+              ))}
+              <input
+                type="number"
+                placeholder="Custom"
+                className="input text-xs w-20 py-1"
+                value={customPlayersPerPage}
+                onChange={(e) => setCustomPlayersPerPage(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && customPlayersPerPage) {
+                    const num = parseInt(customPlayersPerPage);
+                    if (num > 0) setPlayersPerPage(num);
+                  }
+                }}
+              />
+              <button
+                onClick={() => {
+                  const num = parseInt(customPlayersPerPage);
+                  if (num > 0) setPlayersPerPage(num);
+                }}
+                className="text-xs px-3 py-1 bg-[var(--surface)] hover:bg-[var(--border)] rounded"
+                disabled={!customPlayersPerPage}
+              >
+                Apply
+              </button>
             </div>
             
             <div className="overflow-x-auto">
@@ -252,6 +307,7 @@ export default function DashboardPage() {
                       u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
                       u.phone?.includes(searchTerm)
                     )
+                    .slice(0, playersPerPage)
                     .map(player => (
                       <tr key={player.id} className="border-b border-[var(--border)]/50 hover:bg-[var(--surface)]">
                         <td className="py-3 px-2">
