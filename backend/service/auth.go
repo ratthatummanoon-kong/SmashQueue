@@ -413,30 +413,6 @@ func (s *AuthService) VerifyUserByPhone(username, phone string) error {
 	return nil
 }
 
-// ResetPassword resets user password after verification
-func (s *AuthService) ResetPassword(username, phone, newPassword string) error {
-	// Verify user
-	if err := s.VerifyUserByPhone(username, phone); err != nil {
-		return err
-	}
-
-	// Validate new password
-	if err := s.validatePassword(username, newPassword); err != nil {
-		return err
-	}
-
-	// Update password
-	ctx := context.Background()
-	hash := s.hashPassword(newPassword)
-
-	_, err := s.db.ExecContext(ctx, `
-		UPDATE users SET password_hash = $2, updated_at = NOW()
-		WHERE username = $1
-	`, username, hash)
-
-	return err
-}
-
 func isValidPhone(phone string) bool {
 	matched, _ := regexp.MatchString(`^0[89]\d{8}$`, phone)
 	return matched
