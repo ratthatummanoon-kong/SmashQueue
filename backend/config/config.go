@@ -65,7 +65,7 @@ func Load() *Config {
 		},
 		Auth: AuthConfig{
 			SecretKey:            getEnv("AUTH_SECRET_KEY", "smashqueue-secret-key-change-in-production-32bytes!"),
-			AccessTokenDuration:  15 * time.Minute,
+			AccessTokenDuration:  30 * time.Minute,
 			RefreshTokenDuration: 7 * 24 * time.Hour,
 		},
 		CORS: CORSConfig{
