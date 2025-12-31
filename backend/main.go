@@ -231,12 +231,13 @@ func main() {
 }
 
 func connectDB(cfg *config.Config) (*sql.DB, error) {
+	// Use PostgreSQL URI format instead
 	connStr := fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
-		cfg.Database.Host,
-		cfg.Database.Port,
+		"postgresql://%s:%s@%s:%s/%s?sslmode=%s",
 		cfg.Database.User,
 		cfg.Database.Password,
+		cfg.Database.Host,
+		cfg.Database.Port,
 		cfg.Database.Name,
 		cfg.Database.SSLMode,
 	)
