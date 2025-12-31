@@ -172,6 +172,22 @@ async function request<T>(
     });
 
     const data = await response.json();
+    
+    // Auto-logout on 401 Unauthorized (invalid/expired token)
+    if (response.status === 401 || (data.error && data.error.message?.includes('expired token'))) {
+      clearAuth();
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
+      return {
+        success: false,
+        error: {
+          code: 401,
+          message: 'Session expired. Please login again.',
+        },
+      };
+    }
+    
     return data;
   } catch (error) {
     return {
