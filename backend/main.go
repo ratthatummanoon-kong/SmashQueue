@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -84,6 +85,8 @@ func main() {
 		r.Post("/api/register", authHandler.Register)
 		r.Post("/api/login", authHandler.Login)
 		r.Post("/api/refresh", authHandler.Refresh)
+		r.Post("/api/forgot-password", authHandler.ForgotPassword)
+		r.Post("/api/reset-password", authHandler.ResetPassword)
 	})
 
 	// Protected routes
@@ -119,6 +122,19 @@ func main() {
 		r.Post("/api/matches", matchHandler.Create)
 		r.Put("/api/matches/result", matchHandler.RecordResult)
 
+		// Admin: Get all completed matches
+		r.Get("/api/admin/matches/completed", func(w http.ResponseWriter, r *http.Request) {
+			matches, err := matchService.GetAllCompleted(100)
+			if err != nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(model.NewErrorResponse(500, "Failed to fetch matches", err.Error()))
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(model.NewSuccessResponse(matches))
+		})
+
 		// Admin: Get all users
 		r.Get("/api/admin/users", func(w http.ResponseWriter, r *http.Request) {
 			users, err := authService.GetAllUsers()
@@ -130,6 +146,36 @@ func main() {
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(model.NewSuccessResponse(users))
+		})
+
+		// Admin: Update player settings
+		r.Put("/api/admin/users/{userID}", func(w http.ResponseWriter, r *http.Request) {
+			userIDStr := chi.URLParam(r, "userID")
+			userID, err := strconv.ParseInt(userIDStr, 10, 64)
+			if err != nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(model.NewErrorResponse(400, "Invalid user ID", ""))
+				return
+			}
+
+			var req model.UpdatePlayerAdminRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(model.NewErrorResponse(400, "Invalid request body", err.Error()))
+				return
+			}
+
+			if err := authService.UpdatePlayerAdmin(userID, req); err != nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(model.NewErrorResponse(400, "Failed to update player", err.Error()))
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(model.NewSuccessResponse(map[string]string{"message": "Player updated successfully"}))
 		})
 	})
 
