@@ -10,12 +10,16 @@ import {
   getAllUsers,
   updatePlayerAdmin,
   getCompletedMatches,
+  recordMatchResult,
+  getUserProfileById,
+  getUserMatchHistory,
   isAdmin,
   isOrganizer,
   QueueInfo,
   Match,
   UserListItem,
   CompletedMatch,
+  GameScore,
 } from "../lib/api";
 
 export default function AdminPage() {
@@ -36,6 +40,13 @@ export default function AdminPage() {
     handPreference: "right",
     skillTier: "N",
   });
+  const [recordingMatch, setRecordingMatch] = useState<Match | null>(null);
+  const [matchScores, setMatchScores] = useState<{ game: number; team1: number; team2: number }[]>([
+    { game: 1, team1: 0, team2: 0 },
+  ]);
+  const [viewingUserStats, setViewingUserStats] = useState<UserListItem | null>(null);
+  const [userStatsData, setUserStatsData] = useState<any>(null);
+  const [userMatchHistory, setUserMatchHistory] = useState<any[]>([]);
 
   const skillTiers = ["BG", "S-", "S", "N", "P-", "P", "P+", "C", "B", "A"];
   const skillTierNames: Record<string, string> = {
@@ -86,8 +97,8 @@ export default function AdminPage() {
         console.error("Queue fetch failed:", queueRes.error);
       }
       
-      if (matchRes.success && matchRes.data) {
-        setActiveMatches(matchRes.data);
+      if (matchRes.success) {
+        setActiveMatches(matchRes.data || []); // Handle null as empty array
       } else {
         console.error("Match fetch failed:", matchRes.error);
       }
@@ -196,6 +207,60 @@ export default function AdminPage() {
       }
     } catch {
       setError("Network error");
+    }
+  };
+
+  const openRecordMatch = (match: Match) => {
+    setRecordingMatch(match);
+    setMatchScores([{ game: 1, team1: 0, team2: 0 }]);
+  };
+
+  const addGame = () => {
+    if (matchScores.length < 3) {
+      setMatchScores([...matchScores, { game: matchScores.length + 1, team1: 0, team2: 0 }]);
+    }
+  };
+
+  const handleRecordResult = async () => {
+    if (!recordingMatch) return;
+
+    const scores: GameScore[] = matchScores.map(s => ({
+      game: s.game,
+      team1_score: s.team1,
+      team2_score: s.team2,
+    }));
+
+    try {
+      const response = await recordMatchResult(recordingMatch.id, scores);
+      if (response.success) {
+        setSuccess("Match result recorded successfully!");
+        setRecordingMatch(null);
+        loadData();
+        setTimeout(() => setSuccess(""), 3000);
+      } else {
+        setError(response.error?.message || "Failed to record result");
+      }
+    } catch {
+      setError("Network error");
+    }
+  };
+
+  const viewUserStats = async (user: UserListItem) => {
+    setViewingUserStats(user);
+    try {
+      const [profileRes, matchesRes] = await Promise.all([
+        getUserProfileById(user.id),
+        getUserMatchHistory(user.id),
+      ]);
+      
+      if (profileRes.success && profileRes.data) {
+        setUserStatsData(profileRes.data);
+      }
+      if (matchesRes.success && matchesRes.data) {
+        setUserMatchHistory(matchesRes.data);
+      }
+    } catch (err) {
+      console.error("Failed to load user stats:", err);
     }
   };
 
@@ -318,7 +383,7 @@ export default function AdminPage() {
                     <div key={user.id} className="flex justify-between items-center p-2 bg-blue-500/10 rounded">
                       <div>
                         <span className="font-medium">{user.name}</span>
-                        <span className="text-xs text-[var(--muted)] ml-2">{user.skill_level}</span>
+                        <span className="text-xs text-[var(--muted)] ml-2">{user.skill_tier || user.skill_level}</span>
                       </div>
                       <div className="flex gap-1">
                         <button onClick={() => moveToTeam2(user)} className="text-xs px-2 py-1 bg-orange-500/20 rounded hover:bg-orange-500/30">→</button>
@@ -340,7 +405,7 @@ export default function AdminPage() {
                     <div key={user.id} className="flex justify-between items-center p-2 bg-orange-500/10 rounded">
                       <div>
                         <span className="font-medium">{user.name}</span>
-                        <span className="text-xs text-[var(--muted)] ml-2">{user.skill_level}</span>
+                        <span className="text-xs text-[var(--muted)] ml-2">{user.skill_tier || user.skill_level}</span>
                       </div>
                       <div className="flex gap-1">
                         <button onClick={() => moveToTeam1(user)} className="text-xs px-2 py-1 bg-blue-500/20 rounded hover:bg-blue-500/30">←</button>
@@ -441,6 +506,13 @@ export default function AdminPage() {
                     <td className="py-3 px-2 text-right">
                       <div className="flex gap-1 justify-end">
                         <button 
+                          onClick={() => viewUserStats(user)}
+                          className="text-xs px-3 py-1 bg-green-500/20 text-green-400 rounded hover:bg-green-500/30"
+                          title="View player stats"
+                        >
+                          📊
+                        </button>
+                        <button 
                           onClick={() => openEditPlayer(user)}
                           className="text-xs px-3 py-1 bg-purple-500/20 text-purple-400 rounded hover:bg-purple-500/30"
                           title="Edit player settings"
@@ -505,6 +577,12 @@ export default function AdminPage() {
                   <p className="text-xs text-[var(--muted)] mt-2">
                     Started {new Date(match.started_at).toLocaleTimeString()}
                   </p>
+                  <button
+                    onClick={() => openRecordMatch(match)}
+                    className="btn-primary w-full mt-3 text-sm py-2"
+                  >
+                    📝 End Match & Record Result
+                  </button>
                 </div>
               ))}
             </div>
@@ -654,6 +732,160 @@ export default function AdminPage() {
                 >
                   💾 Save Changes
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Record Match Result Modal */}
+        {recordingMatch && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-[var(--card)] rounded-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+              <h3 className="text-xl font-bold mb-4">📝 Record Match Result</h3>
+              <div className="mb-4 p-3 bg-[var(--surface)] rounded">
+                <p className="text-sm"><strong>Court:</strong> {recordingMatch.court}</p>
+                <p className="text-sm"><strong>Team 1:</strong> {recordingMatch.team1.join(", ")}</p>
+                <p className="text-sm"><strong>Team 2:</strong> {recordingMatch.team2.join(", ")}</p>
+              </div>
+
+              <h4 className="font-semibold mb-3">Game Scores:</h4>
+              <div className="space-y-3 mb-4">
+                {matchScores.map((score, idx) => (
+                  <div key={idx} className="p-3 bg-[var(--surface)] rounded">
+                    <label className="text-sm font-medium mb-2 block">Game {score.game}</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-[var(--muted)]">Team 1 Score</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="30"
+                          className="input w-full"
+                          value={score.team1}
+                          onChange={(e) => {
+                            const newScores = [...matchScores];
+                            newScores[idx].team1 = parseInt(e.target.value) || 0;
+                            setMatchScores(newScores);
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-[var(--muted)]">Team 2 Score</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="30"
+                          className="input w-full"
+                          value={score.team2}
+                          onChange={(e) => {
+                            const newScores = [...matchScores];
+                            newScores[idx].team2 = parseInt(e.target.value) || 0;
+                            setMatchScores(newScores);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {matchScores.length < 3 && (
+                <button onClick={addGame} className="btn-secondary w-full mb-4 text-sm">
+                  ➕ Add Game {matchScores.length + 1}
+                </button>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setRecordingMatch(null)}
+                  className="btn-secondary flex-1"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRecordResult}
+                  className="btn-primary flex-1"
+                >
+                  💾 Save Result
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* View User Stats Modal */}
+        {viewingUserStats && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-[var(--card)] rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold">📊 Player Statistics: {viewingUserStats.name}</h3>
+                <button onClick={() => setViewingUserStats(null)} className="text-2xl hover:text-red-500">×</button>
+              </div>
+
+              {userStatsData && (
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div className="card">
+                    <p className="text-sm text-[var(--muted)]">Skill Level</p>
+                    <p className="text-2xl font-bold">{userStatsData.skill_tier}</p>
+                  </div>
+                  <div className="card">
+                    <p className="text-sm text-[var(--muted)]">Rating</p>
+                    <p className="text-2xl font-bold">{userStatsData.rating?.toFixed(1) || "N/A"}</p>
+                  </div>
+                  <div className="card">
+                    <p className="text-sm text-[var(--muted)]">Matches Played</p>
+                    <p className="text-2xl font-bold">{userStatsData.stats?.total_matches || 0}</p>
+                  </div>
+                  <div className="card">
+                    <p className="text-sm text-[var(--muted)]">Win Rate</p>
+                    <p className="text-2xl font-bold">
+                      {userStatsData.stats?.total_matches 
+                        ? ((userStatsData.stats.wins / userStatsData.stats.total_matches) * 100).toFixed(1) 
+                        : "0"}%
+                    </p>
+                  </div>
+                  <div className="card">
+                    <p className="text-sm text-[var(--muted)]">Wins</p>
+                    <p className="text-2xl font-bold text-green-500">{userStatsData.stats?.wins || 0}</p>
+                  </div>
+                  <div className="card">
+                    <p className="text-sm text-[var(--muted)]">Losses</p>
+                    <p className="text-2xl font-bold text-red-500">{userStatsData.stats?.losses || 0}</p>
+                  </div>
+                </div>
+              )}
+
+              <h4 className="font-semibold mb-3">Match History</h4>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {userMatchHistory.length > 0 ? (
+                  userMatchHistory.map((match: any) => (
+                    <div key={match.id} className="p-3 bg-[var(--surface)] rounded">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-medium">{match.court}</span>
+                        <span className={`text-xs px-2 py-1 rounded ${
+                          match.result === "team1" ? "bg-blue-500/20 text-blue-400" :
+                          match.result === "team2" ? "bg-orange-500/20 text-orange-400" :
+                          "bg-gray-500/20 text-gray-400"
+                        }`}>
+                          {match.result === "team1" ? "Team 1 Won" : 
+                           match.result === "team2" ? "Team 2 Won" : "Draw"}
+                        </span>
+                      </div>
+                      <div className="text-xs text-[var(--muted)]">
+                        <p>Team 1: {match.team1_names?.join(", ") || "N/A"}</p>
+                        <p>Team 2: {match.team2_names?.join(", ") || "N/A"}</p>
+                        {match.scores && match.scores.length > 0 && (
+                          <p className="mt-1">
+                            Scores: {match.scores.map((s: any) => `${s.team1_score}-${s.team2_score}`).join(", ")}
+                          </p>
+                        )}
+                        <p className="mt-1">{new Date(match.started_at).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-center text-[var(--muted)] py-4">No match history</p>
+                )}
               </div>
             </div>
           </div>
