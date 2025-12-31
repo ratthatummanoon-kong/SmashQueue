@@ -39,20 +39,28 @@
 ### For Players
 
 - 📊 **Personal Dashboard** - View performance stats and skill levels
-- 📈 **Analytics** - Track win rates and records
-- 📜 **Match History** - See past opponents and partners
+- 📈 **Analytics** - Track win rates, total matches, and streaks
+- 📜 **Match History** - See past opponents, partners, and game scores
 - ⏳ **Queue Status** - Real-time position and wait time
+- 🎯 **Skill Tiers** - Thai badminton ranking system (BG, S-, S, N, P-, P, P+, C, B, A)
+- 🎮 **Profile Management** - Update hand preference and skill tier
 
 ### For Organizers (Hua Guan)
 
 - 🎮 **Queue Management** - Efficient court rotation
-- ⚔️ **Smart Matchmaking** - Automated team balancing
-- 📝 **Match Recording** - Track results and scores
+- ⚔️ **Smart Matchmaking** - Automated team balancing by skill tiers
+- 📝 **Match Recording** - Track results and individual game scores (best of 3)
+- 🏸 **Active Match Management** - Monitor ongoing matches
+- ⏱️ **Match Duration Tracking** - Start and end times
 
 ### For Admins
 
-- 👤 **User Management** - Promote/demote roles
+- 👤 **User Management** - Promote/demote roles, view/edit all users
+- 📊 **Player Directory** - View all players with pagination (10/20/50/100/custom)
+- 🔍 **User Statistics** - View any player's match history and stats
+- 🏆 **Match Management** - End active matches and record results
 - ⚙️ **System Configuration** - Full system access
+- 📈 **Admin Dashboard** - View all players and comprehensive match history
 
 ---
 
@@ -159,9 +167,12 @@ smashqueue/
 │       ├── page.tsx         # Landing page
 │       ├── login/           # Login page
 │       ├── register/        # Registration with validation
-│       ├── dashboard/       # Player dashboard
+│       ├── dashboard/       # Player dashboard (admin shows all players)
 │       ├── profile/         # Profile management
-│       └── components/      # Shared components (Navbar, etc.)
+│       ├── admin/           # Admin panel (match/player management)
+│       ├── components/      # Shared components (Navbar, etc.)
+│       └── lib/
+│           └── api.ts       # API client with auth & auto-logout
 │
 ├── backend/                 # Go 1.22+ backend
 │   ├── Dockerfile          # Production Docker build
@@ -169,10 +180,25 @@ smashqueue/
 │   ├── main.go             # Application entry point
 │   ├── config/             # Environment configuration
 │   ├── database/           # PostgreSQL connection & repositories
+│   │   ├── postgres.go     # Database connection
+│   │   ├── user_repo.go    # User CRUD operations
+│   │   ├── token_repo.go   # Token management
+│   │   └── generate/       # Mock data generation utilities
 │   ├── model/              # Data models & DTOs
 │   ├── service/            # Business logic layer
+│   │   ├── auth.go         # Authentication & registration
+│   │   ├── user.go         # User management
+│   │   ├── match.go        # Match operations
+│   │   └── queue.go        # Queue management
 │   ├── handler/            # HTTP request handlers
-│   └── middleware/         # CORS, Auth, Rate limiting
+│   │   ├── auth.go         # Login/logout/register
+│   │   ├── user.go         # Profile & stats
+│   │   ├── match.go        # Match CRUD
+│   │   └── queue.go        # Queue operations
+│   ├── middleware/         # CORS, Auth, Rate limiting
+│   └── cmd/
+│       └── mock/
+│           └── main.go     # Mock data generator CLI
 │
 └── doc/                     # Documentation
     ├── frontend.md         # Frontend specifications
@@ -187,11 +213,13 @@ All scripts are in the `scripts/` directory and are executable.
 
 ### Service Management
 
-| Command              | Description               |
-| -------------------- | ------------------------- |
-| `./scripts/setup.sh` | First-time project setup  |
-| `./scripts/start.sh` | Start frontend + backend  |
-| `./scripts/stop.sh`  | Stop all running services |
+| Command              | Description                                       |
+| -------------------- | ------------------------------------------------- |
+| `./scripts/setup.sh` | First-time project setup                          |
+| `./scripts/start.sh` | Start frontend + backend                          |
+| `./scripts/stop.sh`  | Stop all running services (with status check)     |
+| `./scripts/gen.sh`   | Generate mock data (players & matches)            |
+| `./scripts/del.sh`   | Delete all data, keep super admin (ID 1)          |
 
 ### Database Management
 
@@ -205,6 +233,16 @@ All scripts are in the `scripts/` directory and are executable.
 | `./scripts/db.sh seed`    | Insert sample data          |
 | `./scripts/db.sh reset`   | Drop and recreate database  |
 | `./scripts/db.sh connect` | Open psql connection        |
+
+### Mock Data Generation
+
+```bash
+# Generate test data (prompts for player count and match count)
+./scripts/gen.sh
+
+# Clean database and reset to fresh state
+./scripts/del.sh  # Requires typing 'yes' to confirm
+```
 
 ---
 
@@ -230,8 +268,8 @@ CORS_ORIGIN=http://localhost:3000
 | `SERVER_PORT`     | HTTP server port               | `8080`                  |
 | `DB_HOST`         | PostgreSQL host                | `localhost`             |
 | `DB_PORT`         | PostgreSQL port                | `5432`                  |
-| `DB_USER`         | Database username              | `postgres`              |
-| `DB_PASSWORD`     | Database password              | `postgres`              |
+| `DB_USER`         | Database username              | `kong`                  |
+| `DB_PASSWORD`     | Database password              | -                       |
 | `DB_NAME`         | Database name                  | `smashqueue`            |
 | `DB_SSLMODE`      | SSL mode (disable/require)     | `disable`               |
 | `AUTH_SECRET_KEY` | PASETO signing key (32+ chars) | -                       |
@@ -257,9 +295,13 @@ CORS_ORIGIN=http://localhost:3000
 │ id              │────▶│ user_id (FK)    │
 │ username        │     │ total_matches   │
 │ password_hash   │     │ wins / losses   │
-│ name / bio      │     │ win_rate        │
-│ role            │     │ skill_level     │
-└─────────────────┘     └─────────────────┘
+│ name / phone    │     │ win_rate        │
+│ bio             │     │ current_streak  │
+│ role            │     │ best_streak     │
+│ hand_preference │     │ skill_level     │
+│ skill_tier      │     │ skill_points    │
+│ avatar_url      │     └─────────────────┘
+└─────────────────┘
         │
         ▼
 ┌─────────────────┐     ┌─────────────────┐
@@ -274,9 +316,11 @@ CORS_ORIGIN=http://localhost:3000
                         ┌─────────────────┐
                         │    matches      │
                         ├─────────────────┤
+                        │ court           │
                         │ team1[] / team2[]│
                         │ result          │
                         │ started_at      │
+                        │ ended_at        │
                         └─────────────────┘
                               │
                               ▼
@@ -285,9 +329,25 @@ CORS_ORIGIN=http://localhost:3000
                         ├─────────────────┤
                         │ match_id (FK)   │
                         │ game_number     │
-                        │ team1/2_score   │
+                        │ team1_score     │
+                        │ team2_score     │
                         └─────────────────┘
 ```
+
+### Skill Tiers (Thai Badminton Style)
+
+| Tier | Full Name          | Description      |
+| ---- | ------------------ | ---------------- |
+| BG   | Beginner           | New players      |
+| S-   | Sub-Standard minus | Learning basics  |
+| S    | Standard           | Basic competency |
+| N    | Normal             | Average player   |
+| P-   | Pro minus          | Skilled          |
+| P    | Pro                | Professional     |
+| P+   | Pro plus           | Advanced pro     |
+| C    | Champion           | Elite player     |
+| B    | Best               | Top tier         |
+| A    | Ace                | Master level     |
 
 ### Setup Database
 
@@ -317,25 +377,31 @@ psql -U postgres -c "CREATE DATABASE smashqueue;"
 
 ### Protected Endpoints (Requires Bearer Token)
 
-| Method | Endpoint              | Description         |
-| ------ | --------------------- | ------------------- |
-| POST   | `/api/logout`         | Invalidate session  |
-| GET    | `/api/profile`        | Get user profile    |
-| PUT    | `/api/profile`        | Update profile      |
-| GET    | `/api/profile/stats`  | Get user statistics |
-| GET    | `/api/queue`          | Get queue status    |
-| POST   | `/api/queue/join`     | Join the queue      |
-| POST   | `/api/queue/leave`    | Leave the queue     |
-| GET    | `/api/matches`        | Get match history   |
-| GET    | `/api/matches/active` | Get ongoing matches |
+| Method | Endpoint                   | Description              |
+| ------ | -------------------------- | ------------------------ |
+| POST   | `/api/logout`              | Invalidate session       |
+| GET    | `/api/profile`             | Get user profile         |
+| PUT    | `/api/profile`             | Update profile           |
+| GET    | `/api/profile/stats`       | Get user statistics      |
+| GET    | `/api/queue`               | Get queue status         |
+| POST   | `/api/queue/join`          | Join the queue           |
+| POST   | `/api/queue/leave`         | Leave the queue          |
+| GET    | `/api/matches`             | Get match history        |
+| GET    | `/api/matches/active`      | Get ongoing matches      |
+| GET    | `/api/matches/completed`   | Get completed matches    |
+| GET    | `/api/users/matches`       | Get user's match history |
 
 ### Organizer/Admin Endpoints
 
-| Method | Endpoint              | Description         |
-| ------ | --------------------- | ------------------- |
-| POST   | `/api/queue/call`     | Call next 4 players |
-| POST   | `/api/matches`        | Create new match    |
-| PUT    | `/api/matches/result` | Record match result |
+| Method | Endpoint                   | Description                |
+| ------ | -------------------------- | -------------------------- |
+| POST   | `/api/queue/call`          | Call next 4 players        |
+| POST   | `/api/matches`             | Create new match           |
+| PUT    | `/api/matches/result`      | Record match result        |
+| GET    | `/api/admin/users`         | Get all users (admin)      |
+| PUT    | `/api/admin/users/:id`     | Update user role (admin)   |
+| GET    | `/api/users/profile/:id`   | Get any user profile       |
+| GET    | `/api/users/:id/matches`   | Get any user match history |
 
 ### Example API Usage
 
@@ -363,11 +429,12 @@ curl http://localhost:8080/api/profile \
 | -------------------- | ----------------------------------- |
 | **Authentication**   | PASETO v2 (symmetric encryption)    |
 | **Password Hashing** | Argon2id (memory-hard)              |
-| **Access Token**     | 15 min expiry, Bearer header        |
+| **Access Token**     | 30 min expiry, Bearer header        |
 | **Refresh Token**    | 7 days expiry, HttpOnly cookie      |
 | **Rate Limiting**    | 10/min (auth), 100/min (API)        |
 | **CORS**             | Strict origin policy                |
 | **Password Rules**   | 8+ chars, upper/lower/number/symbol |
+| **Auto Logout**      | On token expiration (401 response)  |
 
 ---
 
