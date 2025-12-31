@@ -56,3 +56,6 @@ docker-compose.override.yml
 tmp/
 temp/
 .cache/
+
+# logs
+*.pid
