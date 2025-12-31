@@ -224,6 +224,66 @@ func (h *AuthHandler) UpdatePlayerAdmin(w http.ResponseWriter, r *http.Request) 
 	respondJSON(w, http.StatusOK, map[string]string{"message": "Player updated successfully"})
 }
 
+// ForgotPassword handles POST /api/forgot-password
+func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
+	var req model.ForgotPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid request body", err.Error())
+		return
+	}
+
+	if req.Username == "" || req.Phone == "" {
+		respondError(w, http.StatusBadRequest, "Username and phone are required", "")
+		return
+	}
+
+	err := h.authService.VerifyUserByPhone(req.Username, req.Phone)
+	if err != nil {
+		respondError(w, http.StatusUnauthorized, "Invalid credentials", "Username and phone do not match")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{
+		"message": "Verification successful. You can now reset your password.",
+	})
+}
+
+// ResetPassword handles POST /api/reset-password
+func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	var req model.ResetPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid request body", err.Error())
+		return
+	}
+
+	if req.Username == "" || req.Phone == "" || req.NewPassword == "" {
+		respondError(w, http.StatusBadRequest, "All fields are required", "")
+		return
+	}
+
+	err := h.authService.ResetPassword(req.Username, req.Phone, req.NewPassword)
+	if err != nil {
+		switch err {
+		case service.ErrUserNotFound:
+			respondError(w, http.StatusNotFound, "User not found", "")
+		case service.ErrPhoneMismatch:
+			respondError(w, http.StatusUnauthorized, "Invalid credentials", "Username and phone do not match")
+		case service.ErrWeakPassword:
+			respondError(w, http.StatusBadRequest, "Password does not meet requirements",
+				"Password must be at least 8 characters with uppercase, lowercase, number, and special character")
+		case service.ErrPasswordSameAsUser:
+			respondError(w, http.StatusBadRequest, "Password cannot be the same as username", "")
+		default:
+			respondError(w, http.StatusInternalServerError, "Failed to reset password", err.Error())
+		}
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{
+		"message": "Password reset successfully. You can now login with your new password.",
+	})
+}
+
 func splitPath(path string) []string {
 	var parts []string
 	for _, p := range splitString(path, '/') {
