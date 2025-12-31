@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+.pnpm-debug.log
+
+# Build
+.next/
+out/
+dist/
+
+# Environment (local only)
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# Tests
+coverage/
+.nyc_output/
+
+# Misc
+*.log
+README.md
