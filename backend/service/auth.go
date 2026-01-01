@@ -148,11 +148,12 @@ func (s *AuthService) Login(req model.LoginRequest) (*model.AuthResponse, string
 	var passwordHash string
 	var handPref, skillTier sql.NullString
 
+	// Allow login with either username or phone number
 	err := s.db.QueryRowContext(ctx, `
 		SELECT id, username, password_hash, name, phone, bio, role, 
 		       COALESCE(hand_preference, 'right'), COALESCE(skill_tier, 'N'), 
 		       is_active, created_at, updated_at
-		FROM users WHERE username = $1
+		FROM users WHERE username = $1 OR phone = $1
 	`, req.Username).Scan(
 		&user.ID, &user.Username, &passwordHash, &user.Name, &user.Phone,
 		&user.Bio, &user.Role, &handPref, &skillTier,
