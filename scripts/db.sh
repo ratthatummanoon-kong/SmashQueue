@@ -124,11 +124,15 @@ CREATE TABLE IF NOT EXISTS users (
     username VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL DEFAULT '',
+    phone VARCHAR(20),
     bio TEXT DEFAULT '',
     role VARCHAR(50) NOT NULL DEFAULT 'player',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Add unique constraint on phone (only for non-empty values)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone_unique ON users(phone) WHERE phone IS NOT NULL AND phone != '';
 
 -- User stats table
 CREATE TABLE IF NOT EXISTS user_stats (
