@@ -63,13 +63,13 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label htmlFor="username" className="label">
-                Username
+                Username or Phone
               </label>
               <input
                 type="text"
                 id="username"
                 className="input"
-                placeholder="Enter your username"
+                placeholder="Enter username or phone number"
                 value={formData.username}
                 onChange={(e) =>
                   setFormData({ ...formData, username: e.target.value })
